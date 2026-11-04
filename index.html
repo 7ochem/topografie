@@ -1251,18 +1251,13 @@ function burst(kind, p, n = 14) {
 }
 
 /* ---------- Learning logic ---------- */
-// Leitner: box 1 (hard) .. 4 (known). Lower boxes are picked more often.
-const BOXW = { 1: 8, 2: 4, 3: 2, 4: 1 };
+// A round: first the names without a star, picked at random with no preference between them (all of them when they fit).
+// The rest is filled at random with names that have a star. Mixed up, so the names with a star are not all at the end.
+// (The box per name is still kept up to date, but not used for picking.)
 function pickQueue(pool, n) {
-  const bag = pool.map(id => ({ id, w: BOXW[stat(id).box] * (isMastered(id) ? 0.5 : 1) }));
-  const out = [];
-  while (out.length < n && bag.length) {
-    const tot = bag.reduce((a, b) => a + b.w, 0);
-    let r = Math.random() * tot, i = 0;
-    for (; i < bag.length - 1; i++) { r -= bag[i].w; if (r <= 0) break; }
-    out.push(bag.splice(i, 1)[0].id);
-  }
-  return out;
+  const todo = shuffle(pool.filter(id => !isMastered(id))).slice(0, n);
+  const known = shuffle(pool.filter(isMastered)).slice(0, n - todo.length);
+  return shuffle(todo.concat(known));
 }
 // outcome: perfect | helped | wrongfix | fail. Returns true when a star was just earned.
 function applyOutcome(id, outcome) {
