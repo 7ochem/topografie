@@ -80,6 +80,8 @@ button:disabled { cursor: default; }
 .ch-title { font: italic 600 22px/1.1 var(--font-title); text-wrap: balance; }
 .ch-prog { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .ch-prog .bar { flex: 1; margin-left: 6px; }
+.ch-hint { grid-column: 1 / -1; font-size: 14px; font-style: italic; color: var(--muted); }
+.ch-hint.done { color: var(--good); font-style: normal; font-weight: 600; }
 @media (hover: hover) { .ch-card:hover { border-color: var(--ink); } }
 .tab .num {
   background: var(--ink); color: var(--paper); font: 700 26px/1 var(--font-ui);
@@ -88,11 +90,13 @@ button:disabled { cursor: default; }
 .tab .tt { display: flex; flex-direction: column; justify-content: center; padding-left: 8px; border-bottom: 4px solid var(--ink); min-width: 0; }
 .tab .tt b { font: italic 600 20px/1.05 var(--font-title); }
 .tab .tt span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.score { margin-left: auto; display: flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; font-size: 15px; background: var(--paper); border: 1px solid var(--line); padding: 5px 12px; border-radius: 999px; }
-.score .lbl { font-size: 13px; color: var(--muted); }
-.score[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.score[aria-pressed="true"] .lbl { color: var(--paper); }
-@media (max-width: 520px) { .score .lbl { display: none; } }
+.scorewrap { margin-left: auto; display: flex; align-items: center; gap: 6px; }
+/* A real button next to the star counter, so it is clear you can open the progress */
+.scorego { height: 34px; padding: 0 12px; border: 1px solid var(--line); background: var(--card); border-radius: 6px; font-size: 14px; white-space: nowrap; }
+.scorego .short { display: none; }
+@media (max-width: 520px) { .scorego .long { display: none; } .scorego .short { display: inline; } }
+.scorego[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.score { display: flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums; font-size: 15px; background: var(--paper); border: 1px solid var(--line); padding: 5px 12px; border-radius: 999px; }
 .score .s { color: var(--star); font-size: 17px; }
 
 nav.modes { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; flex: 1 1 100%; }
@@ -273,7 +277,7 @@ nav.modes button[aria-pressed="true"] { background: var(--ink); color: var(--pap
   .opts .kbd { margin: 0 8px 0 0; }
 }
 @media (hover: hover) {
-  nav.modes button:not([aria-pressed="true"]):hover, .score:not([aria-pressed="true"]):hover { background: var(--paper); border-color: var(--ink); }
+  nav.modes button:not([aria-pressed="true"]):hover, .score:hover, .scorego:not([aria-pressed="true"]):hover { background: var(--paper); border-color: var(--ink); }
   .btn:not(.primary):not(.good):not(.bad):not(:disabled):hover { background: var(--card); }
   .btn.primary:not(:disabled):hover { background: #3a3a36; }
   .btn.good:not(:disabled):hover, .btn.bad:not(:disabled):hover { filter: brightness(1.1); }
@@ -435,7 +439,10 @@ nav.modes button[aria-pressed="true"] { background: var(--ink); color: var(--pap
   <header class="top">
     <button class="back" id="backbtn" aria-label="Andere kaart kiezen" title="Andere kaart kiezen"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12.5 4 6.5 10l6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Kaarten</span></button>
     <div class="tab"><div class="num" id="chap">3</div><div class="tt"><b id="pseries">Topografie</b><span id="ptitle"></span></div></div>
-    <button class="score" id="scorebtn" aria-label="Voortgang"><span class="s">★</span><span id="stars">0 / 37</span><span class="lbl">Voortgang</span></button>
+    <div class="scorewrap">
+      <button class="score" id="scorebtn" aria-label="Voortgang" title="Bekijk voortgang"><span class="s">★</span><span id="stars">0 / 37</span></button>
+      <button class="scorego" id="scorego"><span class="long">Bekijk voortgang</span><span class="short">Voortgang</span></button>
+    </div>
     <nav class="modes" id="modes" aria-label="Spelmodus">
       <button data-mode="verkennen">Bekijken</button>
       <button data-mode="wat">Wat is dit?</button>
@@ -1447,7 +1454,7 @@ function setMode(mode, showHelp = false) {
   state.mode = mode;
   setHover(null); showTip(null); svg.dataset.cur = '';
   document.querySelectorAll('#modes button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.mode === mode)));
-  $('#scorebtn').setAttribute('aria-pressed', String(mode === 'voortgang'));
+  $('#scorego').setAttribute('aria-pressed', String(mode === 'voortgang'));
   showAllLabels = mode === 'verkennen' && !!prog.prefs.labels;
   applyColors();
   solLabels.clear();
@@ -1464,6 +1471,7 @@ function setMode(mode, showHelp = false) {
 }
 on($('#modes'), 'click', e => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode, true); });
 on($('#scorebtn'), 'click', () => setMode('voortgang', true));
+on($('#scorego'), 'click', () => setMode('voortgang', true));
 
 /* ---------- Rounds ---------- */
 function startRound(mode, ids) {
@@ -2026,7 +2034,9 @@ function boot(data) {
   refreshDone();
   fitAll(false);
   const restored = !!(data && data.mode);
-  const mode = restored && ['verkennen', 'wat', 'waar', 'toets', 'voortgang'].includes(data.mode) ? data.mode : 'verkennen';
+  // Already practised on this map: start at Voortgang, so you see where you are; new maps start with Bekijken
+  const started = Object.values(prog.items).some(it => it && it.seen > 0);
+  const mode = restored && ['verkennen', 'wat', 'waar', 'toets', 'voortgang'].includes(data.mode) ? data.mode : (started ? 'voortgang' : 'verkennen');
   setMode(mode, !restored);
 }
 boot(restore || {});
@@ -2045,13 +2055,17 @@ const appEl = $('#app'), chooserEl = $('#chooser'), helpEl = $('#help');
 const APP_HTML = appEl.innerHTML;
 let current = null; // { id, ctrl, api }
 
+// Stars on this device, and whether practice on this map has started (any question answered)
 function starsOf(pack) {
-  let n = 0;
+  let n = 0, started = false;
   try {
     const v = JSON.parse(localStorage.getItem('topo:' + pack.id + ':v1') || 'null');
-    if (v && v.items) n = pack.items.filter(i => v.items[i.id] && v.items[i.id].streak >= 3).length;
+    if (v && v.items) {
+      n = pack.items.filter(i => v.items[i.id] && v.items[i.id].streak >= 3).length;
+      started = Object.values(v.items).some(it => it && it.seen > 0);
+    }
   } catch (e) { /* storage blocked */ }
-  return n;
+  return { n, started };
 }
 function stop() {
   if (!current) return;
@@ -2078,11 +2092,13 @@ function showChooser() {
   const series = [...new Set(PACKS.map(p => p.pack.series))];
   chooserEl.innerHTML = `<div class="ch-head"><h1>Topografie</h1><p>Kies je kaart</p></div>
     ${series.map(s => `<section class="ch-group"><h2>${esc(s)}</h2><div class="ch-cards">${PACKS.filter(p => p.pack.series === s).map(({ pack, map }) => {
-      const n = starsOf(pack), tot = pack.items.length;
+      const { n, started } = starsOf(pack), tot = pack.items.length;
+      const hint = n === tot ? '<span class="ch-hint done">Alles heeft een ster!</span>'
+        : `<span class="ch-hint">${started || n ? 'Ga verder met oefenen' : 'Begin met oefenen'}</span>`;
       return `<button class="ch-card" data-pack="${esc(pack.id)}">
         <svg class="ch-inset" viewBox="0 0 ${map.inset.w} ${map.inset.h}" aria-hidden="true"><path class="ch-land" d="${map.inset.land}"/><path class="ch-hi" d="${map.inset.na}"/></svg>
         <span class="ch-txt"><span class="ch-num">${esc(pack.chapter)}</span><span class="ch-title">${esc(pack.title)}</span>
-        <span class="ch-prog"><span class="starred">★</span> ${n} / ${tot}<span class="bar"><i style="width:${100 * n / tot}%"></i></span></span></span>
+        <span class="ch-prog"><span class="starred">★</span> ${n} / ${tot}<span class="bar"><i style="width:${100 * n / tot}%"></i></span></span>${hint}</span>
       </button>`;
     }).join('')}</div></section>`).join('')}`;
   chooserEl.hidden = false;
