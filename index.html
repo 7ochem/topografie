@@ -174,6 +174,12 @@ nav.modes button[aria-pressed="true"] { background: var(--ink); color: var(--pap
 .fb.bad { background: var(--bad-soft); color: var(--bad); }
 .fb.info { background: var(--paper); border: 1px solid var(--line); }
 .fb b { color: var(--ink); }
+/* The result after an answer: big and clear, and it pushes the Volgende button below where the answer buttons were */
+.fb.result { display: flex; align-items: center; gap: 12px; min-height: 80px; padding: 14px 18px; font-size: 20px; font-weight: 600; line-height: 1.3; box-sizing: border-box; }
+.fb.result.good { border: 2px solid var(--good); }
+.fb.result.info { border: 2px solid var(--line); font-weight: 400; }
+.fb.result .emo { font-size: 36px; margin: 0; vertical-align: 0; }
+.nextrow { justify-content: flex-end; margin-top: 14px; }
 .seg { display: inline-flex; border: 1px solid var(--ink); border-radius: 8px; overflow: hidden; }
 .seg button { border: 0; background: var(--paper); padding: 8px 14px; font-size: 14px; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
@@ -244,6 +250,8 @@ nav.modes button[aria-pressed="true"] { background: var(--ink); color: var(--pap
 .sw-helped { background: var(--star); }
 .sw-fail { background: var(--bad); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips .sumchip { font-size: 15px; padding: 5px 13px; min-height: 34px; color: var(--ink); }
+.chips .sumchip[aria-pressed="true"] { border-color: var(--hi); background: #fff1e8; }
 
 /* Worksheet list (Verkennen + Voortgang) */
 .sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px 16px; }
@@ -287,6 +295,7 @@ nav.modes button[aria-pressed="true"] { background: var(--ink); color: var(--pap
   .zoomctl button:hover { background: var(--card); border-color: var(--ink); }
   .tgl:hover { border-color: var(--ink); }
   button.chip:hover { border-color: var(--ink); }
+  .chips .sumchip:hover { border-color: var(--hi); background: #fff1e8; }
 }
 
 /* Larger on a laptop screen */
@@ -337,6 +346,8 @@ nav.modes button[aria-pressed="true"] { background: var(--ink); color: var(--pap
 .help-card:focus { outline: none; }
 .help h2 { font: italic 600 28px/1.1 var(--font-title); margin: 2px 40px 10px 0; text-wrap: balance; }
 .help .lead { margin: 0 0 10px; font-size: 16px; }
+.help-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
+.help-foot .btn { min-width: 96px; }
 .help ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 7px; }
 .legend { margin-top: 12px; padding: 10px 12px; background: var(--card); border: 1px solid var(--line); border-radius: 8px; }
 .legend-t { font-weight: 700; margin-bottom: 2px; }
@@ -473,6 +484,7 @@ nav.modes button[aria-pressed="true"] { background: var(--ink); color: var(--pap
     <div class="eyebrow">Zo werkt het</div>
     <h2 id="helpT"></h2>
     <div id="helpB"></div>
+    <div class="help-foot"><button class="btn primary" id="helpOk">Ok</button></div>
   </div>
 </div>
 
@@ -588,6 +600,20 @@ const PACKS = [
 
 </script>
 <script>
+// Progress is stored per player. There is one player for now; the key leaves room for more players in one browser.
+const PLAYER = 'player1';
+function storeKey(packId) {
+  const key = `topo:${PLAYER}:${packId}:v1`, old = `topo:${packId}:v1`;
+  try {
+    // Move progress saved before there were players
+    if (localStorage.getItem(key) === null && localStorage.getItem(old) !== null) {
+      localStorage.setItem(key, localStorage.getItem(old));
+      localStorage.removeItem(old);
+    }
+  } catch (e) { /* storage blocked */ }
+  return key;
+}
+
 // Runs one lesson pack. Everything it attaches is removed again when `signal` aborts (switching packs).
 function runGame(PACK, MAP, signal, restore) {
 'use strict';
@@ -601,7 +627,7 @@ const BY = Object.fromEntries(ITEMS.map(i => [i.id, i]));
 const CAT = Object.fromEntries(PACK.cats.map(c => [c.id, c]));
 const PALETTE = ['#f29e9e', '#f6cf5f', '#9fd39a', '#93c5ea', '#c6afe6', '#f6b98a', '#86d0c4', '#e3cf98', '#f0a6cf', '#b7d97a'];
 ITEMS.forEach((it, i) => { it.color = PALETTE[i % PALETTE.length]; });
-const STORE = 'topo:' + PACK.id + ':v1';
+const STORE = storeKey(PACK.id);
 const FINE = !!(window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches);
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -1312,7 +1338,7 @@ function makeOpts(id) {
 }
 
 /* ---------- App state ---------- */
-const state = { mode: 'verkennen', sel: null, selAlso: [], rounds: {}, setupOpen: {}, resetAsk: false };
+const state = { mode: 'verkennen', sel: null, selAlso: [], rounds: {}, setupOpen: {}, resetAsk: false, sumHl: null };
 const allCats = PACK.cats.map(c => c.id);
 const P = {
   wat: prefs('wat', { type: 'mc', cats: allCats, len: 10 }),
@@ -1418,8 +1444,8 @@ function closeHelp() {
   helpEl.hidden = true;
   if (helpReturn && helpReturn.focus) helpReturn.focus({ preventScroll: true });
 }
-// Close with the cross or by clicking outside the card
-on(helpEl, 'click', e => { if (e.target === helpEl || e.target.closest('#helpX')) closeHelp(); });
+// Close with the cross, the Ok button or by clicking outside the card
+on(helpEl, 'click', e => { if (e.target === helpEl || e.target.closest('#helpX, #helpOk')) closeHelp(); });
 /* Keyboard shortcuts (laptop) */
 on(document, 'keydown', e => {
   if (e.key === 'Escape') { closeHelp(); return; }
@@ -1459,6 +1485,7 @@ function setMode(mode, showHelp = false) {
   applyColors();
   solLabels.clear();
   setHl(null);
+  state.sumHl = null;
   const r = state.rounds[mode];
   if (mode === 'verkennen' && state.sel) setHl({ id: state.sel, style: 'sel' });
   if (mode === 'toets' && r && r.graded) r.items.forEach(id => solLabels.add(id));
@@ -1493,7 +1520,7 @@ function nextQuestion(r, first) {
   solLabels.clear();
   clearEmo();
   if (r.i >= r.queue.length) {
-    r.over = true; r.cur = null; setHl(null); renderLabels(); fitAll(); render();
+    r.over = true; r.cur = null; state.sumHl = null; setHl(null); renderLabels(); fitAll(); render();
     const all = Object.values(r.res);
     if (emojiOn() && all.length && all.every(o => o === 'perfect')) {
       const z = box(); const p = { x: z.width / 2, y: z.height / 2 };
@@ -1506,6 +1533,7 @@ function nextQuestion(r, first) {
   if (r.mode === 'wat' && P.wat.type === 'mc') r.cur.opts = makeOpts(id);
   showQuestion(r, true);
   render();
+  lastSwap = performance.now();
   if (r.mode === 'wat' && P.wat.type === 'typen') { const inp = $('#ans'); inp && inp.focus({ preventScroll: true }); }
 }
 function showQuestion(r, zoom) {
@@ -1563,6 +1591,7 @@ function finish(r, outcome) {
   }
   renderLabels();
   render();
+  lastSwap = performance.now();
   const nb = $('#btn-next'); if (nb) { nb.focus({ preventScroll: true }); nb.scrollIntoView({ block: 'nearest' }); }
 }
 function outcomeFor(c) { return c.wrong > 0 ? 'wrongfix' : c.hint > 0 ? 'helped' : 'perfect'; }
@@ -1714,6 +1743,8 @@ function onMapTap(x, y) {
 
 /* ---------- Panel rendering ---------- */
 const panel = $('#panel');
+// Time of the last change between question and answer in the panel (for the tap guard)
+let lastSwap = 0;
 const K = t => `<span class="kbd">${t}</span>`;
 const catChip = it => `<span class="chip cat">${esc(CAT[it.cat].single)}</span>`;
 // Three dots that lead to a star: the progress of one item
@@ -1823,8 +1854,8 @@ function feedbackHtml(r) {
   const counts = r.mode !== 'waar';
   const name = `<b>${esc(it.name)}</b>`, note = c.note ? ' ' + c.note : '';
   let msg = c.outcome === 'fail'
-    ? `<div class="fb info">${emoHtml(c.emo)}Het is ${name}.</div>`
-    : `<div class="fb good">${emoHtml(c.emo)}${c.outcome === 'perfect' ? 'Goed zo!' : 'Goed!'} Het is ${name}.${note}</div>`;
+    ? `<div class="fb info result">${emoHtml(c.emo)}<span>Het is ${name}.</span></div>`
+    : `<div class="fb good result">${emoHtml(c.emo)}<span>${c.outcome === 'perfect' ? 'Goed zo!' : 'Goed!'} Het is ${name}.${note}</span></div>`;
   if (counts) {
     if (c.star) {
       msg += `<div class="starline won">${trackHtml(c.id)}<span><b>${esc(it.name)} heeft nu een ster!</b> Je had het 3 keer achter elkaar goed. ${colouredWhere(c.id)}</span></div>`;
@@ -1839,7 +1870,7 @@ function feedbackHtml(r) {
     }
   }
   const bar = c.autoMs && r.autoT ? `<span class="autobar" style="animation-duration:${c.autoMs}ms"></span>` : '';
-  return msg + `<div class="row" style="justify-content:flex-end"><button class="btn primary nextbtn" id="btn-next" data-act="next">Volgende${K('Enter')}${bar}</button></div>`;
+  return msg + `<div class="row nextrow"><button class="btn primary nextbtn" id="btn-next" data-act="next">Volgende${K('Enter')}${bar}</button></div>`;
 }
 
 // Hint button with what it will do. label null = last step: show the answer
@@ -1910,6 +1941,20 @@ function renderToets(r) {
     </div>`;
   r.practice = wrong;
 }
+// Round summary: a name lights up on the map (hover on a laptop, tap to keep it)
+function sumLight(id) {
+  solLabels.clear();
+  if (id) { setHl({ id, style: 'sel' }); solLabels.add(id); ensureVisible(id); } else setHl(null);
+  renderLabels();
+}
+on(panel, 'mouseover', e => {
+  const b = e.target.closest('[data-act="sumhl"]');
+  if (b && FINE) sumLight(b.dataset.id);
+});
+on(panel, 'mouseout', e => {
+  const b = e.target.closest('[data-act="sumhl"]');
+  if (b && FINE && !b.contains(e.relatedTarget)) sumLight(state.sumHl || null);
+});
 function renderSummary(r) {
   // Group the names by how they went (last answer per name)
   const by = { perfect: [], helped: [], fail: [] };
@@ -1917,7 +1962,7 @@ function renderSummary(r) {
   const labels = { perfect: 'In één keer goed', helped: 'Goed met een hint of na een fout', fail: 'Antwoord bekeken' };
   const groups = ['perfect', 'helped', 'fail'].filter(k => by[k].length).map(k => `
     <div class="sumgroup"><div class="sumhead"><span class="sw sw-${k}"></span>${labels[k]} <span class="muted">(${by[k].length})</span></div>
-      <div class="chips">${by[k].map(id => `<span class="chip">${esc(BY[id].name)}${isMastered(id) ? ' <span class="starred">★</span>' : ''}</span>`).join('')}</div></div>`).join('');
+      <div class="chips">${by[k].map(id => `<button class="chip sumchip" data-act="sumhl" data-id="${id}" aria-pressed="${state.sumHl === id}">${esc(BY[id].name)}${isMastered(id) ? ' <span class="starred">★</span>' : ''}</button>`).join('')}</div></div>`).join('');
   const practice = by.helped.concat(by.fail);
   const pNames = practice.map(id => BY[id].name);
   const practiceLabel = practice.length <= 3 ? `Oefen ${esc(joinNl(pNames))} nog een keer` : `Oefen deze ${practice.length} nog een keer`;
@@ -1926,6 +1971,7 @@ function renderSummary(r) {
   const canPractice = practice.length && r.mode !== 'waar';
   const allGood = emojiOn() && !by.helped.length && !by.fail.length && by.perfect.length;
   panel.innerHTML = `<p class="qtitle">Ronde klaar${allGood ? ' <span class="emo-t" aria-hidden="true">🏆</span>' : ''}</p>
+    <p class="muted" style="margin:0">${FINE ? 'Ga met de muis over een naam of klik erop' : 'Tik op een naam'} om te zien waar het ligt.</p>
     ${starsHtml}
     ${groups}
     ${verdictHtml(readiness())}
@@ -1963,6 +2009,12 @@ on(panel, 'click', e => {
     state.sel = id; state.selAlso = [];
     setHl({ id, style: 'sel' }); focusItem(id, 320); render(); return;
   }
+  if (act === 'sumhl') {
+    state.sumHl = state.sumHl === b.dataset.id ? null : b.dataset.id;
+    sumLight(state.sumHl);
+    panel.querySelectorAll('[data-act="sumhl"]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.id === state.sumHl)));
+    return;
+  }
   if (act === 'labels') { showAllLabels = !showAllLabels; prog.prefs.labels = showAllLabels; save(); renderLabels(); render(); return; }
   if (act === 'colors') { prog.prefs.colors = !colorsOn(); save(); applyColors(); render(); return; }
   if (act === 'emoji') { prog.prefs.emoji = !emojiOn(); save(); render(); return; }
@@ -1985,6 +2037,8 @@ on(panel, 'click', e => {
   if (act === 'go') { state.setupOpen[m] = false; startRound(m); return; }
   if (act === 'resume') { state.setupOpen[m] = false; if (m === 'toets') { renderNums(); render(); return; } showQuestion(r, true); render(); return; }
   if (act === 'setup') { state.setupOpen[m] = true; if (r) { clearTimeout(r.autoT); r.autoT = null; } renderNums(); render(); return; }
+  // Ignore taps right after the panel changed: they were meant for the button that was there before
+  if ((act === 'next' || act === 'opt') && performance.now() - lastSwap < 450) return;
   if (act === 'next') { nextQuestion(r); return; }
   if (act === 'opt') { answerWat(r, b.dataset.id); return; }
   if (act === 'hint') { (m === 'waar' ? hintWaar : hintWat)(r); return; }
@@ -2059,7 +2113,7 @@ let current = null; // { id, ctrl, api }
 function starsOf(pack) {
   let n = 0, started = false;
   try {
-    const v = JSON.parse(localStorage.getItem('topo:' + pack.id + ':v1') || 'null');
+    const v = JSON.parse(localStorage.getItem(storeKey(pack.id)) || 'null');
     if (v && v.items) {
       n = pack.items.filter(i => v.items[i.id] && v.items[i.id].streak >= 3).length;
       started = Object.values(v.items).some(it => it && it.seen > 0);
