@@ -1,9 +1,9 @@
 # Map scripts
 
-These scripts made the map data in `maps/`. They are a record of how each map was built, not a ready-to-run
+These scripts made the map data in `public/maps/`. They are a record of how each map was built, not a ready-to-run
 pipeline: they ran in a separate workspace, and the paths still point there (`data/`, `node_modules/`, a work
 folder per map, sometimes `/root/topo/...`). The output went to `build/mapdata_<id>.json`; that file was then
-copied to `maps/<id>.json`. Use them as the starting point for a new map and fix the paths on the way.
+copied to `public/maps/<id>.json`. Use them as the starting point for a new map and fix the paths on the way.
 
 ## Install
 

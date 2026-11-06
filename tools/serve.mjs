@@ -1,11 +1,11 @@
-// Small static file server for local use and the tests: node tools/serve.mjs [port]
+// Small static file server for local use and the tests: node tools/serve.mjs [port]. Serves public/, like GitHub Pages.
 // (Opening index.html as a file does not work, because the map data is fetched.)
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const PORT = Number(process.argv[2] || process.env.PORT || 8000);
 const TYPES = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
 

@@ -2,15 +2,15 @@
 
 A small web game to practise school topography (Dutch "topografie") at home. Each lesson pack follows one
 school worksheet: the same names list and a map that looks like the printed sheet, so children and parents
-recognise it. Hosted with GitHub Pages from `main` (repository root). No build step,
-no framework, no dependencies in the browser.
+recognise it. The site is everything in `public/`; a GitHub Actions workflow publishes that folder to
+GitHub Pages on every push to `main`. No build step, no framework, no dependencies in the browser.
 
 The users are children of about 9 to 12 years old, playing on a laptop or a phone/tablet.
 
 ## Run and test
 
 - First time: `npm install && npx playwright install chromium` (Playwright is the only dependency, for the test).
-- Local: `npm start`, then open http://localhost:8000. Opening `index.html` as a file does not work,
+- Local: `npm start` (serves `public/`), then open http://localhost:8000. Opening `public/index.html` as a file does not work,
   because the map data is fetched.
 - Smoke test: `npm test` (Playwright, `tools/test/smoke.spec.js`). It opens every map, checks that only that
   map's data is loaded, that every name is hit on its own spot, plays a Wat is dit? round and a Proeftoets,
@@ -22,13 +22,14 @@ The users are children of about 9 to 12 years old, playing on a laptop or a phon
 
 | Path | What |
 |---|---|
-| `index.html` | Markup only: start screen (`#chooser`), the game (`#app`), the help overlay (`#help`) |
-| `css/topo.css` | All styles. Colours as variables on `:root`. Map art styles start at "Map art" |
-| `js/packs.js` | The lesson packs (names lists) and `PACKS`: order of the start screen, map file, thumbnail |
-| `js/game.js` | `runGame(PACK, MAP, signal)`: one open map. Everything it attaches is removed when `signal` aborts |
-| `js/shell.js` | Start screen, fetching map data (cached per visit), opening and closing a pack |
-| `maps/<id>.json` | Map data of one pack (see "Map data"). Generated, do not edit by hand |
-| `maps/<id>-thumb.svg` | Small picture on the start screen card |
+| `public/index.html` | Markup only: start screen (`#chooser`), the game (`#app`), the help overlay (`#help`) |
+| `public/css/topo.css` | All styles. Colours as variables on `:root`. Map art styles start at "Map art" |
+| `public/js/packs.js` | The lesson packs (names lists) and `PACKS`: order of the start screen, map file, thumbnail |
+| `public/js/game.js` | `runGame(PACK, MAP, signal)`: one open map. Everything it attaches is removed when `signal` aborts |
+| `public/js/shell.js` | Start screen, fetching map data (cached per visit), opening and closing a pack |
+| `public/maps/<id>.json` | Map data of one pack (see "Map data"). Generated, do not edit by hand |
+| `public/maps/<id>-thumb.svg` | Small picture on the start screen card |
+| `.github/workflows/pages.yml` | Publishes `public/` to GitHub Pages (Settings → Pages → Source: GitHub Actions) |
 | `tools/serve.mjs` | Small static server (`npm start`, also used by the test) |
 | `tools/test/smoke.spec.js` | The smoke test (`npm test`) |
 | `tools/maps/` | Record of the scripts that made each map (see its README) |
@@ -36,7 +37,7 @@ The users are children of about 9 to 12 years old, playing on a laptop or a phon
 Not in the repo (`.gitignore`): the photos of the worksheets (`fotos/`), the OpenStreetMap downloads
 (`osm-*.geojson`) and other source data. The worksheets are copyrighted; never commit them or images made from them.
 
-## Lesson pack (`js/packs.js`)
+## Lesson pack (`public/js/packs.js`)
 
 ```js
 const PACK_XX = {
@@ -59,7 +60,7 @@ const PACK_XX = {
 - Two items may have the same name (Groningen is a province and a city). The 4 options never show a name twice,
   and typing the shared name is right for both.
 
-## Map data (`maps/<id>.json`)
+## Map data (`public/maps/<id>.json`)
 
 All coordinates are in "frame units": the map frame is 1000 wide, `H` high; the inset may stick out above it.
 
@@ -119,7 +120,7 @@ it is built from open map data and only fitted to the photo, so it looks like th
 
 1. The user takes two photos (straight from above, whole page, good light): the map page and the names list.
    They upload them in the chat or put them in `fotos/` (local only, in `.gitignore`).
-2. Read the names list and add the pack to `js/packs.js`: exact names and categories in the order of the sheet,
+2. Read the names list and add the pack to `public/js/packs.js`: exact names and categories in the order of the sheet,
    chapter number and series. Check spelling with the user when the photo is unclear.
 3. Study the map photo and write down what the game must copy:
    - title, frame (aspect ratio), the inset (small overview map, position and what is dark in it), scale bar;
@@ -133,7 +134,7 @@ it is built from open map data and only fitted to the photo, so it looks like th
    rectify the photo to the frame (`rect.py`: frame corners, then a correction for the bent page), fit the data
    to the drawn lines and the dots (`icp.py`: Mercator + a small polynomial warp), build the map data
    (`build.py`: land, list areas, waters, label points) and the inset (`final.mjs`).
-6. Write `maps/<id>.json`, make `maps/<id>-thumb.svg`, add the pack to `PACKS`, set `credit` (see below).
+6. Write `public/maps/<id>.json`, make `public/maps/<id>-thumb.svg`, add the pack to `PACKS`, set `credit` (see below).
 7. Check: `npm test`, labels do not overlap with Namen on, the side-by-side picture with the photo, and the phone
    size. Show the user screenshots before calling it done; ask about anything that differs from the sheet.
 

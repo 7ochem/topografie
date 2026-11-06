@@ -2,8 +2,8 @@
 import { test, expect } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
-// The packs on the start screen, in order: the map files listed in PACKS in js/packs.js
-const PACK_IDS = [...readFileSync(new URL('../../js/packs.js', import.meta.url), 'utf8').matchAll(/map: 'maps\/([\w-]+)\.json'/g)].map(m => m[1]);
+// The packs on the start screen, in order: the map files listed in PACKS in public/js/packs.js
+const PACK_IDS = [...readFileSync(new URL('../../public/js/packs.js', import.meta.url), 'utf8').matchAll(/map: 'maps\/([\w-]+)\.json'/g)].map(m => m[1]);
 
 test('the start screen lists every map and loads no map data', async ({ page }) => {
   const mapRequests = [];
