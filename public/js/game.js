@@ -694,13 +694,11 @@ function closeTo(text, name) {
 const isOtherName = (text, it) => ITEMS.some(o => o !== it && o.name !== it.name && norm(o.name) === norm(text));
 const cleanTyped = text => (text || '').trim().replace(/\s+/g, ' ');
 const isExact = (t, it) => t === it.name || (it.alsoExact || []).includes(t);
-const isAlias = (t, it) => (it.aliases || []).some(a => norm(a) === norm(t));
 // Proeftoets: points per answer
 function gradeTyped(text, it) {
   const t = cleanTyped(text);
   if (!t) return { pts: 0, kind: 'leeg' };
   if (isExact(t, it)) return { pts: 1, kind: 'ok' };
-  if (isAlias(t, it)) return { pts: 1, kind: 'ok', note: `Op je lijst heet dit: <b>${esc(it.name)}</b>.` };
   if (isOtherName(t, it)) return { pts: 0, kind: 'fout' };
   if (norm(t) !== norm(it.name) && !closeTo(t, it.name)) return { pts: 0, kind: 'fout' };
   if (spelling() === 'streng') return { pts: 0.5, kind: 'spel', note: `Spelfout, halve punt eraf. Zo schrijf je het: <b>${esc(it.name)}</b>.` };
@@ -711,7 +709,6 @@ function checkTyped(text, it) {
   const t = cleanTyped(text);
   if (isExact(t, it)) return { ok: true };
   if (norm(t) === norm(it.name)) return { ok: true, note: `Let op de schrijfwijze: <b>${esc(it.name)}</b>.` };
-  if (isAlias(t, it)) return { ok: true, note: `Op je lijst heet dit: <b>${esc(it.name)}</b>.` };
   if (spelling() === 'soepel' && !isOtherName(t, it) && closeTo(t, it.name)) return { ok: true, note: `Bijna goed! Zo schrijf je het: <b>${esc(it.name)}</b>.` };
   return { ok: false };
 }

@@ -41,7 +41,7 @@ const PACK_XX = {
   title: 'Groningen & Drenthe',
   quizZoom: 2,                     // optional: Wat is dit? zoom on the asked item (busy maps)
   cats: [{ id: 'provincie', plural: 'Provincies', single: 'Provincie' }, ...],   // sheet order
-  items: [{ id, name, cat, kind, lp?, aliases?, alsoExact?, carets? }, ...],
+  items: [{ id, name, cat, kind, lp?, alsoExact?, carets? }, ...],
 };
 ```
 
@@ -49,9 +49,8 @@ const PACK_XX = {
 - `kind` sets drawing and hit testing: areas `country`, `state`, `sea`; lines `river`, `canal`;
   `city` (dot); `mtn` (carets).
 - `lp`: city label side `l`/`r`/`t`/`b`.
-- Only the list name counts. Never add other names (local language: Köln, Schwarzwald; English; other Dutch)
-  without asking the user. Some older packs still have such `aliases`.
-- `aliases`: also right, with note "Op je lijst heet dit: …". Only on user request.
+- Only the name and spelling of the photographed list count. No aliases: no other names (local language: Köln,
+  Schwarzwald; English; other Dutch), no other spellings. The game has no alias support.
 - `alsoExact`: official spelling when the sheet differs ("Zwarte woud" vs "Zwarte Woud"); right even with "streng".
 - Shared names allowed (Groningen: province and city). The 4 options never repeat a name; typing it is right for both.
 
@@ -83,7 +82,7 @@ scalebar: { x, y, len, label, tick?, mid?, textDy? } | null
 - Hints: Wat is dit? choose: strike 2 names; typing: first 2 letters, then choose from 4; then "Ik weet het niet"
   shows the answer and the item returns later in the round. Waar ligt…?: zoom, blink, "Ik weet het niet".
 - Spelling per pack: "streng" (default De Wereld) = exact incl. capitals, spelling mistake = half point off in
-  Proeftoets; "soepel" (default otherwise) = small mistake ok.
+  Proeftoets; "soepel" (default Nederland, Europa) = small mistake ok.
 - Right without mistake: auto-advance after 1.5 s (4 s with new star). Taps in the first 0.45 s after a panel
   change are ignored (double taps).
 - Star colours only in Bekijken (Kleuren) and Voortgang, never in quiz modes.
