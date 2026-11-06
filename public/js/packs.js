@@ -197,11 +197,74 @@ const PACK_GD = {
   ],
 };
 
-// All packs, in the order of the start screen (grouped by series).
+// Lespakket: exact the names list of the worksheet "DUITSLAND" (Topografie Europa, 4).
+const PACK_DE = {
+  id: 'duitsland',
+  series: 'Europa',
+  chapter: '4',
+  // Wat is dit?: zoom in a little on the asked item (times the whole-map view); the Ruhr cities are close together
+  quizZoom: 2,
+  title: 'Duitsland',
+  cats: [
+    { id: 'land', plural: 'Landen', single: 'Land' },
+    { id: 'plaats', plural: 'Plaatsen', single: 'Plaats' },
+    { id: 'water', plural: 'Wateren', single: 'Water' },
+    { id: 'gebied', plural: 'Gebieden', single: 'Gebied' },
+  ],
+  items: [
+    { id: 'belgie', name: 'België', cat: 'land', kind: 'country' },
+    { id: 'denemarken', name: 'Denemarken', cat: 'land', kind: 'country' },
+    { id: 'duitsland', name: 'Duitsland', cat: 'land', kind: 'country' },
+    { id: 'frankrijk', name: 'Frankrijk', cat: 'land', kind: 'country' },
+    { id: 'italie', name: 'Italië', cat: 'land', kind: 'country' },
+    { id: 'luxemburg', name: 'Luxemburg', cat: 'land', kind: 'country' },
+    { id: 'nederland', name: 'Nederland', cat: 'land', kind: 'country' },
+    { id: 'oostenrijk', name: 'Oostenrijk', cat: 'land', kind: 'country' },
+    { id: 'polen', name: 'Polen', cat: 'land', kind: 'country' },
+    { id: 'slovenie', name: 'Slovenië', cat: 'land', kind: 'country' },
+    { id: 'tsjechie', name: 'Tsjechië', cat: 'land', kind: 'country' },
+    { id: 'zwitserland', name: 'Zwitserland', cat: 'land', kind: 'country' },
+
+    { id: 'aken', name: 'Aken', cat: 'plaats', kind: 'city', lp: 'l' },
+    { id: 'berlijn', name: 'Berlijn', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'bonn', name: 'Bonn', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'bremen', name: 'Bremen', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'dortmund', name: 'Dortmund', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'dresden', name: 'Dresden', cat: 'plaats', kind: 'city', lp: 'l' },
+    { id: 'duisburg', name: 'Duisburg', cat: 'plaats', kind: 'city', lp: 'l' },
+    { id: 'dusseldorf', name: 'Düsseldorf', cat: 'plaats', kind: 'city', lp: 'l' },
+    { id: 'essen', name: 'Essen', cat: 'plaats', kind: 'city', lp: 't' },
+    { id: 'frankfurt', name: 'Frankfurt', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'hamburg', name: 'Hamburg', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'hannover', name: 'Hannover', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'keulen', name: 'Keulen', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'leipzig', name: 'Leipzig', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'magdeburg', name: 'Magdeburg', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'munchen', name: 'München', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'neurenberg', name: 'Neurenberg', cat: 'plaats', kind: 'city', lp: 'r' },
+    { id: 'stuttgart', name: 'Stuttgart', cat: 'plaats', kind: 'city', lp: 'r' },
+
+    { id: 'elbe', name: 'Elbe', cat: 'water', kind: 'river' },
+    { id: 'rijn', name: 'Rijn', cat: 'water', kind: 'river' },
+    { id: 'moezel', name: 'Moezel', cat: 'water', kind: 'river' },
+
+    { id: 'beieren', name: 'Beieren', cat: 'gebied', kind: 'state' },
+    { id: 'eifel', name: 'Eifel', cat: 'gebied', kind: 'mtn', carets: 'eifel' },
+    { id: 'harz', name: 'Harz', cat: 'gebied', kind: 'mtn', carets: 'harz' },
+    { id: 'ruhrgebied', name: 'Ruhrgebied', cat: 'gebied', kind: 'state' },
+    { id: 'sauerland', name: 'Sauerland', cat: 'gebied', kind: 'mtn', carets: 'sauerland' },
+    // alsoExact: the official spelling has a capital W
+    { id: 'zwartewoud', name: 'Zwarte woud', cat: 'gebied', kind: 'mtn', carets: 'zwartewoud', alsoExact: ['Zwarte Woud'] },
+  ],
+};
+
+// All packs, in the order of the start screen (grouped by series: Nederland, Europa, De Wereld,
+// so they go up in difficulty and size).
 // map: the map data (loaded when the pack is opened); thumb: the small picture on the start screen.
 const PACKS = [
-  { pack: PACK_NA, map: 'maps/noord-midden-amerika.json', thumb: 'maps/noord-midden-amerika-thumb.svg' },
-  { pack: PACK_MO, map: 'maps/midden-oosten.json', thumb: 'maps/midden-oosten-thumb.svg' },
   { pack: PACK_ZL, map: 'maps/zeeland.json', thumb: 'maps/zeeland-thumb.svg' },
   { pack: PACK_GD, map: 'maps/groningen-drenthe.json', thumb: 'maps/groningen-drenthe-thumb.svg' },
+  { pack: PACK_DE, map: 'maps/duitsland.json', thumb: 'maps/duitsland-thumb.svg' },
+  { pack: PACK_NA, map: 'maps/noord-midden-amerika.json', thumb: 'maps/noord-midden-amerika-thumb.svg' },
+  { pack: PACK_MO, map: 'maps/midden-oosten.json', thumb: 'maps/midden-oosten-thumb.svg' },
 ];

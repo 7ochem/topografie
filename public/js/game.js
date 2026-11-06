@@ -51,7 +51,7 @@ const prefs = (mode, def) => (prog.prefs[mode] = Object.assign({}, def, prog.pre
 /* ---------- Map drawing ---------- */
 const svg = $('#map');
 const M = MAP;
-const FULL_Y = Math.min(-78, M.inset.y - 12);
+const FULL_Y = Math.min(-78, M.inset ? M.inset.y - 12 : 0);
 const FULL = { x: -14, y: FULL_Y, w: M.W + 28, h: M.H + 14 - FULL_Y };
 const CITY_IDS = ITEMS.filter(i => i.kind === 'city').map(i => i.id);
 
@@ -119,14 +119,17 @@ function buildMap() {
   for (const it of ITEMS.filter(i => i.kind === 'mtn')) {
     s += `<g class="mtn" id="it-${it.id}">` + M.carets[it.carets].map(p => `<use href="#caretSym" class="caret" x="${p[0]}" y="${p[1]}"/>`).join('') + '</g>';
   }
+  // City dots without a name on the list: on the sheet as a reference only, not part of the game
+  for (const p of b.dots || []) s += `<circle class="city deco" cx="${p[0]}" cy="${p[1]}" r="3.4"/>`;
   for (const id of CITY_IDS) { const p = M.cities[id]; s += `<circle class="city" id="it-${id}" cx="${p[0]}" cy="${p[1]}" r="3.4"/>`; }
   if (M.scalebar) {
     const sb = M.scalebar, x2 = sb.x + sb.len, tk = sb.tick || 5, mid = sb.mid || 4, ty = sb.y - (sb.textDy || 9);
     s += `<g class="scalebar"><path d="M${sb.x},${sb.y - tk}V${sb.y}H${x2}V${sb.y - tk}M${(sb.x + x2) / 2},${sb.y}V${sb.y - mid}"/><text x="${sb.x}" y="${ty}" text-anchor="middle">0</text><text x="${x2}" y="${ty}" text-anchor="middle">${esc(sb.label)}</text></g>`;
   }
   s += `<g id="hov"></g><g id="fx"></g><g id="labels" class="labels"></g><g id="nums"></g></g>
-  <rect class="frame" x="0" y="0" width="${W}" height="${H}"/>
-  <g id="inset" class="${st.inset === 'light' ? 'light' : ''}" transform="translate(${M.inset.x},${M.inset.y})">
+  <rect class="frame" x="0" y="0" width="${W}" height="${H}"/>`;
+  // The small overview map; not every sheet has one
+  if (M.inset) s += `<g id="inset" class="${st.inset === 'light' ? 'light' : ''}" transform="translate(${M.inset.x},${M.inset.y})">
     <rect class="inset-bg" width="${M.inset.w}" height="${M.inset.h}"/>
     <path class="inset-land" d="${M.inset.land}"/><path class="inset-na" d="${M.inset.na}"/>
   </g>`;
@@ -278,10 +281,12 @@ function scaleDeps() {
   const u = upp();
   const r = Math.max(3.4, 2.8 * u).toFixed(2);
   CITY_IDS.forEach(id => elOf(id).setAttribute('r', r));
+  svg.querySelectorAll('.deco').forEach(c => c.setAttribute('r', r));
   const k = Math.max(1, u * 0.9);
   ['pSea', 'pGrey'].forEach(p => svg.getElementById(p).setAttribute('patternTransform', `scale(${k.toFixed(3)})`));
   // The small world map belongs to the sheet; it would cover Greenland when zoomed in
-  svg.getElementById('inset').style.opacity = view.s > fitScale() * 1.3 ? '0' : '1';
+  const inset = svg.getElementById('inset');
+  if (inset) inset.style.opacity = view.s > fitScale() * 1.3 ? '0' : '1';
   renderFx();
   renderHover();
   renderLabels();

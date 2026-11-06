@@ -42,7 +42,7 @@ Not in the repo (`.gitignore`): the photos of the worksheets (`fotos/`), the Ope
 ```js
 const PACK_XX = {
   id: 'groningen-drenthe',         // also the map file name and the storage key
-  series: 'Nederland',             // group on the start screen: 'De Wereld' or 'Nederland'
+  series: 'Nederland',             // group on the start screen: 'Nederland', 'Europa' or 'De Wereld' (in that order)
   chapter: '3',                    // number on the worksheet
   title: 'Groningen & Drenthe',
   quizZoom: 2,                     // optional: Wat is dit? zooms in this much on the asked item (busy maps)
@@ -55,8 +55,12 @@ const PACK_XX = {
 - `kind` decides drawing and hit testing: `country` and `state` (areas), `sea`, `river`, `canal` (lines),
   `city` (dot), `mtn` (mountain carets).
 - `lp`: where a city name goes (`l`, `r`, `t`, `b`).
-- `aliases`: other names that count as right, with a note "Op je lijst heet dit: …".
-- `alsoExact`: another spelling that is just as right, also with spelling "streng".
+- Only the name on the list counts: children learn the names of their list. Never add other names on your own:
+  not the name in the country's own language (Köln, Aachen, Schwarzwald), not the English name, not another Dutch
+  name. Ask the user first. Some older packs still have such `aliases`.
+- `aliases`: other names that count as right, with a note "Op je lijst heet dit: …". Only when the user asks for them.
+- `alsoExact`: the official spelling of the same name when the sheet writes it differently ("Zwarte woud" on the
+  sheet, "Zwarte Woud" officially). Just as right, also with spelling "streng".
 - Two items may have the same name (Groningen is a province and a city). The 4 options never show a name twice,
   and typing the shared name is right for both.
 
@@ -67,11 +71,12 @@ All coordinates are in "frame units": the map frame is 1000 wide, `H` high; the 
 ```
 W, H, title, credit (small HTML line at the bottom left of the map)
 style: { sea: 'stipple' | 'plain' | 'specks', grey: 'light', inset: 'light' }
-inset: { x, y, w, h, land, na }            small overview map; `na` is the region in dark
-base:  { grey, white, land, ink?, borders, heavy, dashed, dotted?, lakes, decor[] }
+inset?: { x, y, w, h, land, na }           small overview map; `na` is the region in dark. Left out when the sheet has none
+base:  { grey, white, land, ink?, borders, heavy, dashed, dotted?, lakes, decor[], dots? }
          grey/white = land not on the list; land = coastline (or `ink` for extra drawn lines);
          heavy = national border; dashed = province borders; dotted = outline of an area the sheet does
-         not draw (Hondsrug); decor = extra rivers and canals
+         not draw (Hondsrug); decor = extra rivers and canals; dots = city dots without a name on the list
+         ([[x, y], ...], decoration only)
 areaFill: { <id>: 'grey' }                 list items drawn grey instead of white (neighbour provinces, countries)
 countries, states, waters, lines: { <id>: svg path }   the items of the list
 cities: { <id>: [x, y] }, carets: { <key>: [[x, y], ...] }, labels: { <id>: [x, y] }
@@ -108,6 +113,9 @@ scalebar: { x, y, len, label, tick?, mid?, textDy? } | null
 - Laptop and touch both matter: hover only adds, keyboard shortcuts on laptop (1-4, H, Enter, +, -, 0, Esc).
 - The map must keep looking like the paper sheet: black lines on white, light grey neighbours (never dark),
   specks or stipple for water, same frame, inset and scale bar.
+- Water is always lightly speckled (`style.sea: 'specks'`, or stipple), never plain white. Big lakes too
+  (IJsselmeer, Markermeer, Bodensee): leave them out of the land so they get the sea pattern, and draw dikes
+  between them as lines (Duitsland). `base.lakes` (light grey) is only for small lakes.
 - Map data credits: OpenStreetMap (ODbL) needs "© OpenStreetMap-bijdragers"; geoBoundaries and CBS/Kadaster
   are named too. Natural Earth is public domain (named anyway).
 
@@ -123,13 +131,18 @@ it is built from open map data and only fitted to the photo, so it looks like th
 2. Read the names list and add the pack to `public/js/packs.js`: exact names and categories in the order of the sheet,
    chapter number and series. Check spelling with the user when the photo is unclear.
 3. Study the map photo and write down what the game must copy:
-   - title, frame (aspect ratio), the inset (small overview map, position and what is dark in it), scale bar;
+   - title, frame (aspect ratio), the inset (small overview map, position and what is dark in it) and the
+     scale bar, if the sheet has them;
    - which land is white (the topic) and which is grey (neighbours), and how water looks (specks or stipple);
    - line types: coast, national border (heavy), province borders (dashed), canals and rivers;
-   - the city dots (their positions are the best control points for the fit);
+   - the city dots (their positions are the best control points for the fit). Sheets often have one to three
+     dots whose place is not on the names list. Keep them on the map as decoration (`base.dots`), just a
+     reference on the sheet: they are not items and take no part in any game mode;
    - names on the list that the sheet does not draw (like the Hondsrug): propose a dotted outline.
 4. Choose the data (table below). For OpenStreetMap the agent may have no network access to it; then give the
-   user an Overpass query (see below) to run.
+   user an Overpass query (see below) to run. From Claude Code on the user's laptop it works: send a User-Agent
+   header, use `maps.mail.ru/osm/tools/overpass/api/interpreter` when `overpass-api.de` is busy, and for single
+   areas (a mountain range, a nature park) Nominatim `lookup` with `polygon_geojson=1`.
 5. Build and fit (scripts in `tools/maps/`, setup in `tools/maps/README.md`):
    rectify the photo to the frame (`rect.py`: frame corners, then a correction for the bent page), fit the data
    to the drawn lines and the dots (`icp.py`: Mercator + a small polynomial warp), build the map data
@@ -145,8 +158,10 @@ it is built from open map data and only fitted to the photo, so it looks like th
 | Natural Earth (10m countries, 50m lakes and rivers, admin-1; also npm `world-atlas`) | World and continent maps: countries, coasts, big lakes and rivers, US states | Detail inside a country: small islands, canals, Dutch coastline | Public domain; still shown as "Kaart: Natural Earth" |
 | OpenStreetMap via Overpass (coastline, water, canals) | Dutch and other regional maps: detailed coast, Wadden islands, lakes, named canals and rivers | Borders (use geoBoundaries) | Required: "© OpenStreetMap-bijdragers", linked to openstreetmap.org/copyright (ODbL) |
 | geoBoundaries (NLD ADM1 provinces, ADM2 municipalities) | Province borders, and areas built from municipalities (Walcheren, Zuid-Beveland) | Coastline (too coarse) | "geoBoundaries" (CC BY) |
+| geoBoundaries (DEU ADM1 states, ADM3 districts) | German states (Bavaria), areas built from districts (Ruhr area, Sauerland) | Coastline | "geoBoundaries (BKG)" (dl-de/by-2-0) |
+| OpenStreetMap areas via Nominatim | Mountain areas for the carets (Harz, Schwarzwald, nature parks) | | "© OpenStreetMap-bijdragers" |
 | CBS / Kadaster provinces | The inset of the Netherlands | Detailed maps | "CBS/Kadaster" |
-| geo-maps countries-land (npm `@geo-maps/countries-land-10m`) | Land outline of NL, BE, DE when OpenStreetMap is not available | Islands and estuaries in detail | Based on OpenStreetMap: use the OpenStreetMap credit |
+| geo-maps countries-land (npm `@geo-maps/countries-land-10m` / `-100m`) | Land outline of NL, BE, DE when OpenStreetMap is not available; coasts and borders of a country map (Duitsland) | Islands and estuaries in detail; its holes (lakes) and the gaps where a border runs through a lake need filling | Based on OpenStreetMap: use the OpenStreetMap credit |
 
 Every source that is used is named in the `credit` line of that map. It shows small at the bottom left of the map.
 

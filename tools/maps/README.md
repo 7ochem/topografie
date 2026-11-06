@@ -1,9 +1,13 @@
 # Map scripts
 
-These scripts made the map data in `public/maps/`. They are a record of how each map was built, not a ready-to-run
-pipeline: they ran in a separate workspace, and the paths still point there (`data/`, `node_modules/`, a work
-folder per map, sometimes `/root/topo/...`). The output went to `build/mapdata_<id>.json`; that file was then
-copied to `public/maps/<id>.json`. Use them as the starting point for a new map and fix the paths on the way.
+These scripts made the map data in `public/maps/`. They are a record of how each map was built.
+
+- `duitsland/` runs from this repo as it is: it reads the photo from `fotos/`, keeps downloads and in-between
+  files in `work/` (local only, in `.gitignore`) and writes `public/maps/<id>.json`. Use it as the starting point
+  for a new map.
+- The older maps ran in a separate workspace, and their paths still point there (`data/`, `node_modules/`, a work
+  folder per map, sometimes `/root/topo/...`). Their output went to `build/mapdata_<id>.json`, then copied to
+  `public/maps/<id>.json`.
 
 ## Install
 
@@ -26,6 +30,11 @@ npm install                       # d3-geo, topojson, world-atlas (package.json)
 | geoBoundaries NLD ADM1, ADM2 | geoboundaries.org | Dutch provinces and municipalities |
 | CBS provinces 2023 | cartomap / CBS | Inset of the Netherlands |
 | OpenStreetMap coast, water, canals | Overpass API (query below) | Zeeland, Groningen & Drenthe |
+| Natural Earth 10m lakes, rivers (+ Europe supplements) as GeoJSON | github.com/nvkelso/natural-earth-vector (`geojson/`) | Duitsland |
+| geo-maps countries-land 100m | npm `@geo-maps/countries-land-100m`, unpacked to `work/data/gm/` | Duitsland: coasts and borders |
+| geoBoundaries DEU ADM1, ADM3 (BKG, dl-de/by-2-0) | geoboundaries.org | Bavaria, Ruhr area, Sauerland |
+| OpenStreetMap areas (Harz, Schwarzwald, nature parks, IJsselmeer, Markermeer) | Nominatim `lookup?osm_ids=R…&polygon_geojson=1` | Duitsland: mountain carets, lakes and dikes |
+| OpenStreetMap lakes around Flevoland (Gooimeer to Ketelmeer) | Overpass, `natural=water` by name, `out geom` | Duitsland: Flevoland as an island |
 
 Overpass query (change the box: south, west, north, east), run on overpass-turbo.eu, export as GeoJSON:
 
@@ -52,6 +61,11 @@ out geom;
   control points in `gcp.json`), `geo.py` (lon/lat to frame), `build.py`, `final.mjs` (inset).
 - `groningen-drenthe/`: same steps as Midden-Oosten, with OpenStreetMap and geoBoundaries data;
   the 16 city dots are the control points.
+- `duitsland/`: `frame.py` (frame corners on the photo), `rect.py 1350` (photo to frame), `prep.py` (countries
+  from geo-maps), `icp.py 3 8 lcc` (warp: Lambert conformal conic + a degree-3 polynomial; the sheet uses a conic
+  projection, Mercator fits much worse), `build.py` (writes `public/maps/duitsland.json`), `thumb.mjs` (start
+  screen picture; the sheet has no inset). `overlay.py [map json]` draws the data over the rectified photo to check
+  by eye. The 19 city dots (Amsterdam too, a decoration dot) are the control points.
 
 The `*.json` files next to the scripts are the fitted parameters (frame corners, control points, warp),
 so a map can be rebuilt without fitting again.

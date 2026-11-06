@@ -8,3 +8,4 @@ playwright-report/
 # Photos of the worksheets and source data for the map scripts: keep local
 fotos/
 osm-*.geojson
+tools/maps/work/
