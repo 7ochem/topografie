@@ -11,9 +11,12 @@ function storeKey(packId) {
   } catch (e) { /* storage blocked */ }
   return key;
 }
+// Practice has started on a pack: any question answered (`items` as stored)
+const isStarted = items => Object.values(items).some(it => it && it.seen > 0);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
 // Runs one lesson pack. Everything it attaches is removed again when `signal` aborts (switching packs).
-function runGame(PACK, MAP, signal, restore) {
+function runGame(PACK, M, signal) {
 'use strict';
 const on = (el, ev, fn, o = {}) => el.addEventListener(ev, fn, { ...o, signal });
 
@@ -28,12 +31,13 @@ ITEMS.forEach((it, i) => { it.color = PALETTE[i % PALETTE.length]; });
 const STORE = storeKey(PACK.id);
 const FINE = !!(window.matchMedia && matchMedia('(hover: hover) and (pointer: fine)').matches);
 const REDUCED = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 // Shows a word as the button it refers to, e.g. [Namen tonen]
 const UI = t => `<span class="ui">${t}</span>`;
 const KEY = t => `<span class="key">${t}</span>`;
-const dots = n => `<span class="streak">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+// Three dots, the first `n` filled: the progress of one item towards a star
+const pips = n => [0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('');
+const dots = n => `<span class="streak">${pips(n)}</span>`;
 const joinNl = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' en ' + a[a.length - 1];
 
 /* ---------- Progress (per device, localStorage) ---------- */
@@ -50,7 +54,6 @@ const prefs = (mode, def) => (prog.prefs[mode] = Object.assign({}, def, prog.pre
 
 /* ---------- Map drawing ---------- */
 const svg = $('#map');
-const M = MAP;
 const FULL_Y = Math.min(-78, M.inset ? M.inset.y - 12 : 0);
 const FULL = { x: -14, y: FULL_Y, w: M.W + 28, h: M.H + 14 - FULL_Y };
 const CITY_IDS = ITEMS.filter(i => i.kind === 'city').map(i => i.id);
@@ -133,12 +136,11 @@ function buildMap() {
     <rect class="inset-bg" width="${M.inset.w}" height="${M.inset.h}"/>
     <path class="inset-land" d="${M.inset.land}"/><path class="inset-na" d="${M.inset.na}"/>
   </g>`;
-  svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
   svg.innerHTML = s;
 }
 buildMap();
 $('#credit').innerHTML = M.credit || '';
-const elOf = id => svg.getElementById ? svg.getElementById('it-' + id) : document.getElementById('it-' + id);
+const elOf = id => svg.getElementById('it-' + id);
 
 /* ---------- Geometry helpers ---------- */
 const caretsOf = id => M.carets[BY[id].carets];
@@ -167,10 +169,7 @@ function bboxOf(id) {
 /* ---------- Hit testing (canvas Path2D works in every browser) ---------- */
 const hctx = (() => { const c = document.createElement('canvas'); c.width = M.W; c.height = Math.ceil(M.H); return c.getContext('2d'); })();
 const P2 = {};
-for (const [id, d] of Object.entries(M.countries)) P2[id] = new Path2D(d);
-for (const [id, d] of Object.entries(M.states)) P2[id] = new Path2D(d);
-for (const [id, d] of Object.entries(M.waters)) P2[id] = new Path2D(d);
-for (const [id, d] of Object.entries(M.lines || {})) P2[id] = new Path2D(d);
+for (const set of [M.countries, M.states, M.waters, M.lines || {}]) for (const [id, d] of Object.entries(set)) P2[id] = new Path2D(d);
 const LAND = new Path2D(M.base.land);
 const idsOf = kind => ITEMS.filter(i => i.kind === kind).map(i => i.id);
 const CANAL_IDS = idsOf('canal'), RIVER_IDS = idsOf('river');
@@ -408,16 +407,22 @@ function setHl(next) {
   }
   renderFx();
 }
+// Ring, line or mountain circles for one item; `c` = class names and ring radius (screen pixels) per kind
+function itemShapes(it, c) {
+  const u = upp(), ring = (p, r) => `<circle class="${c.ring}" cx="${p[0]}" cy="${p[1]}" r="${(r * u).toFixed(2)}"/>`;
+  const line = () => `<path class="${c.line}" d="${M.lines[it.id]}"/>`;
+  if (it.kind === 'city') return ring(M.cities[it.id], c.cityR);
+  if (it.kind === 'river') return line();
+  if (it.kind === 'canal') return line() + ring(M.labels[it.id], c.canalR);
+  if (it.kind === 'mtn') return `<g class="${c.mtn}">` + caretsOf(it.id).map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="9"/>`).join('') + '</g>';
+  return '';
+}
 function renderFx() {
   const g = svg.getElementById('fx');
   if (!hl) { g.innerHTML = ''; return; }
   const u = upp(), it = BY[hl.id];
-  let s = '';
-  if (it.kind === 'city') { const p = M.cities[it.id]; s = `<circle class="ring" cx="${p[0]}" cy="${p[1]}" r="${(11 * u).toFixed(2)}"/>`; }
-  else if (it.kind === 'river') s = `<path class="qline" d="${M.lines[it.id]}"/>`;
-  else if (it.kind === 'canal') { s = `<path class="qline" d="${M.lines[it.id]}"/>`; const p = M.labels[it.id]; s += `<circle class="ring" cx="${p[0]}" cy="${p[1]}" r="${(14 * u).toFixed(2)}"/>`; }
-  else if (it.kind === 'mtn') s = '<g class="mtnhi">' + caretsOf(it.id).map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="9"/>`).join('') + '</g>';
-  else if (it.kind === 'sea' && hl.style === 'q') { const p = M.labels[it.id]; s = `<circle class="qmark" cx="${p[0]}" cy="${p[1]}" r="${(13 * u).toFixed(2)}"/><text class="qmark-t" x="${p[0]}" y="${p[1]}" style="font-size:${(15 * u).toFixed(2)}px">?</text>`; }
+  let s = itemShapes(it, { ring: 'ring', line: 'qline', mtn: 'mtnhi', cityR: 11, canalR: 14 });
+  if (it.kind === 'sea' && hl.style === 'q') { const p = M.labels[it.id]; s = `<circle class="qmark" cx="${p[0]}" cy="${p[1]}" r="${(13 * u).toFixed(2)}"/><text class="qmark-t" x="${p[0]}" y="${p[1]}" style="font-size:${(15 * u).toFixed(2)}px">?</text>`; }
   g.innerHTML = s;
   g.classList.toggle('blink', !!hl.blink);
   if (hl.blink) { g.style.animation = 'none'; void g.getBBox(); g.style.animation = ''; }
@@ -433,15 +438,7 @@ function setHover(id) {
 }
 function renderHover() {
   const g = svg.getElementById('hov');
-  if (!g) return;
-  if (!hoverId) { g.innerHTML = ''; return; }
-  const u = upp(), it = BY[hoverId];
-  let s = '';
-  if (it.kind === 'city') { const p = M.cities[it.id]; s = `<circle class="hring" cx="${p[0]}" cy="${p[1]}" r="${(9 * u).toFixed(2)}"/>`; }
-  else if (it.kind === 'river') s = `<path class="hline" d="${M.lines[it.id]}"/>`;
-  else if (it.kind === 'canal') { const p = M.labels[it.id]; s = `<path class="hline" d="${M.lines[it.id]}"/><circle class="hring" cx="${p[0]}" cy="${p[1]}" r="${(12 * u).toFixed(2)}"/>`; }
-  else if (it.kind === 'mtn') s = '<g class="mtnhov">' + caretsOf(it.id).map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="9"/>`).join('') + '</g>';
-  g.innerHTML = s;
+  g.innerHTML = hoverId ? itemShapes(BY[hoverId], { ring: 'hring', line: 'hline', mtn: 'mtnhov', cityR: 9, canalR: 12 }) : '';
 }
 const tipEl = $('#tip');
 function showTip(id, cx, cy) {
@@ -695,12 +692,15 @@ function closeTo(text, name) {
 }
 // Another name on the list (not one with the same name: Groningen is a province and a city)
 const isOtherName = (text, it) => ITEMS.some(o => o !== it && o.name !== it.name && norm(o.name) === norm(text));
+const cleanTyped = text => (text || '').trim().replace(/\s+/g, ' ');
+const isExact = (t, it) => t === it.name || (it.alsoExact || []).includes(t);
+const isAlias = (t, it) => (it.aliases || []).some(a => norm(a) === norm(t));
 // Proeftoets: points per answer
 function gradeTyped(text, it) {
-  const t = (text || '').trim().replace(/\s+/g, ' ');
+  const t = cleanTyped(text);
   if (!t) return { pts: 0, kind: 'leeg' };
-  if (t === it.name || (it.alsoExact || []).includes(t)) return { pts: 1, kind: 'ok' };
-  if ((it.aliases || []).some(a => norm(a) === norm(t))) return { pts: 1, kind: 'ok', note: `Op je lijst heet dit: <b>${esc(it.name)}</b>.` };
+  if (isExact(t, it)) return { pts: 1, kind: 'ok' };
+  if (isAlias(t, it)) return { pts: 1, kind: 'ok', note: `Op je lijst heet dit: <b>${esc(it.name)}</b>.` };
   if (isOtherName(t, it)) return { pts: 0, kind: 'fout' };
   if (norm(t) !== norm(it.name) && !closeTo(t, it.name)) return { pts: 0, kind: 'fout' };
   if (spelling() === 'streng') return { pts: 0.5, kind: 'spel', note: `Spelfout, halve punt eraf. Zo schrijf je het: <b>${esc(it.name)}</b>.` };
@@ -708,10 +708,10 @@ function gradeTyped(text, it) {
 }
 // Wat is dit? (typing): practice, so capitals and accents never make it wrong; small typos only with 'soepel'
 function checkTyped(text, it) {
-  const t = text.trim().replace(/\s+/g, ' ');
-  if (t === it.name || (it.alsoExact || []).includes(t)) return { ok: true };
+  const t = cleanTyped(text);
+  if (isExact(t, it)) return { ok: true };
   if (norm(t) === norm(it.name)) return { ok: true, note: `Let op de schrijfwijze: <b>${esc(it.name)}</b>.` };
-  if ((it.aliases || []).some(a => norm(a) === norm(t))) return { ok: true, note: `Op je lijst heet dit: <b>${esc(it.name)}</b>.` };
+  if (isAlias(t, it)) return { ok: true, note: `Op je lijst heet dit: <b>${esc(it.name)}</b>.` };
   if (spelling() === 'soepel' && !isOtherName(t, it) && closeTo(t, it.name)) return { ok: true, note: `Bijna goed! Zo schrijf je het: <b>${esc(it.name)}</b>.` };
   return { ok: false };
 }
@@ -766,7 +766,7 @@ const poolOf = cats => ITEMS.filter(i => cats.includes(i.cat)).map(i => i.id);
 
 /* ---------- Uitleg per modus (overlay) ---------- */
 // Example of one name's dots, used in the explanation
-const demo = (n, star = false) => `<span class="track">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}<b class="${star ? 'on' : ''}">★</b></span>`;
+const demo = (n, star = false) => `<span class="track">${pips(n)}<b class="${star ? 'on' : ''}">★</b></span>`;
 function legend(title, rows, note = '', sub = '') {
   const two = rows.every(r => !r[1]); // rows without a "before → after" step
   return `<div class="legend"><div class="legend-t">${title}</div>${sub ? `<p class="legend-s">${sub}</p>` : ''}<div class="lgrid${two ? ' two' : ''}">${rows.map(([from, to, txt]) =>
@@ -779,7 +779,6 @@ function exampleName() {
   const pool = short.length >= 3 ? short : sorted.slice(0, 5);
   return esc(pool[Math.floor(Math.random() * pool.length)]);
 }
-// Each text has a touch version (t) and a mouse/touchpad version (p); the page shows the one that fits the device
 // Each text has a touch version (t) and a mouse/touchpad version (p); a function is filled in when the help opens
 const HELP = {
   verkennen: { title: 'Bekijken', lead: 'Hier leer je de kaart kennen. Er zijn geen punten te halen.', items: [
@@ -833,10 +832,9 @@ const helpEl = $('#help');
 let helpReturn = null;
 function openHelp(mode) {
   const h = HELP[mode];
-  if (!h) return;
   $('#helpT').textContent = h.title;
   const items = h.items.map(t => typeof t === 'string' ? t : typeof t === 'function' ? t() : (FINE ? t.p : t.t)).filter(Boolean);
-  $('#helpB').innerHTML = `<p class="lead">${h.lead}</p>${h.before || ''}<ul>${items.map(t => `<li>${t}</li>`).join('')}</ul>${typeof h.after === 'function' ? h.after() : (h.after || '')}`;
+  $('#helpB').innerHTML = `<p class="lead">${h.lead}</p>${h.before || ''}<ul>${items.map(t => `<li>${t}</li>`).join('')}</ul>${h.after ? h.after() : ''}`;
   helpReturn = document.activeElement;
   helpEl.hidden = false;
   $('#help .help-card').focus({ preventScroll: true });
@@ -854,7 +852,7 @@ on(document, 'keydown', e => {
   if (!helpEl.hidden) { if (e.key === 'Enter') { e.preventDefault(); closeHelp(); } return; }
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   const tag = e.target && e.target.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (tag === 'INPUT') return;
   const k = e.key.toLowerCase();
   if (k === '+' || k === '=') { zoomBy(1.7); return; }
   if (k === '-' || k === '_') { zoomBy(1 / 1.7); return; }
@@ -1071,7 +1069,6 @@ function numPoint(id) {
 }
 function renderNums() {
   const g = svg.getElementById('nums');
-  if (!g) return;
   const r = state.rounds.toets;
   if (state.mode !== 'toets' || !r || state.setupOpen.toets) { g.innerHTML = ''; return; }
   const u = upp();
@@ -1151,8 +1148,8 @@ const K = t => `<span class="kbd">${t}</span>`;
 const catChip = it => `<span class="chip cat">${esc(CAT[it.cat].single)}</span>`;
 // Three dots that lead to a star: the progress of one item
 function trackHtml(id) {
-  const star = isMastered(id), n = star ? 3 : Math.min(3, streakOf(id));
-  return `<span class="track" aria-hidden="true">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}<b class="${star ? 'on' : ''}">★</b></span>`;
+  const star = isMastered(id);
+  return demo(star ? 3 : Math.min(3, streakOf(id)), star).replace('<span class="track"', '<span class="track" aria-hidden="true"');
 }
 function trackText(id) {
   const name = `<b>${esc(BY[id].name)}</b>`, n = Math.min(3, streakOf(id));
@@ -1174,7 +1171,7 @@ function colouredWhere(id) {
 function streakHtml(id) {
   if (isMastered(id)) return '<span class="starred" title="Ster: 3 keer achter elkaar goed">★</span>';
   const n = Math.min(3, streakOf(id));
-  return `<span class="streak" title="${n} van 3 keer achter elkaar goed">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+  return `<span class="streak" title="${n} van 3 keer achter elkaar goed">${pips(n)}</span>`;
 }
 function catToggles(sel, act) {
   return `<div class="toggles">${PACK.cats.map(c => `<button data-act="${act}" data-cat="${c.id}" aria-pressed="${sel.includes(c.id)}">${esc(c.plural)} <span class="muted">${ITEMS.filter(i => i.cat === c.id).length}</span></button>`).join('')}</div>`;
@@ -1244,11 +1241,12 @@ function renderSetup(m) {
   panel.innerHTML = `${body}<div class="row"><button class="btn primary" data-act="go">Start</button>${canBack ? '<button class="btn ghost" data-act="resume">Terug naar de ronde</button>' : ''}</div>`;
 }
 
+const SETUP_BTN = '<button class="btn ghost" data-act="setup" style="padding:4px 10px;font-size:13px">Instellingen</button>';
 function progressLine(r) {
   const t = r.tally;
   return `<div class="row between"><div class="pl"><span class="eyebrow">Vraag ${Math.min(r.i + 1, r.queue.length)} van ${r.queue.length}</span>
     <span class="live">Goed <b>${t.perfect}</b> · Met hulp <b>${t.helped + t.wrongfix}</b> · Fout <b>${t.fail}</b></span></div>
-    <button class="btn ghost" data-act="setup" style="padding:4px 10px;font-size:13px">Instellingen</button></div>`;
+    ${SETUP_BTN}</div>`;
 }
 function feedbackHtml(r) {
   const c = r.cur, it = BY[c.id];
@@ -1308,7 +1306,7 @@ function renderWaar(r) {
     ${feedbackHtml(r)}`;
 }
 function renderToets(r) {
-  const head = `<div class="row between"><span class="eyebrow">${r.items.length} vragen · spelling ${spelling()}</span><button class="btn ghost" data-act="setup" style="padding:4px 10px;font-size:13px">Instellingen</button></div>`;
+  const head = `<div class="row between"><span class="eyebrow">${r.items.length} vragen · spelling ${spelling()}</span>${SETUP_BTN}</div>`;
   if (!r.graded) {
     const empty = r.items.filter(id => !(r.answers[id] || '').trim()).length;
     panel.innerHTML = `${head}
@@ -1479,23 +1477,16 @@ on(panel, 'focusin', e => {
 });
 
 /* ---------- Boot ---------- */
-function boot(data) {
-  try {
-    if (data && data.rounds) { state.rounds = data.rounds; state.sel = data.sel || null; }
-  } catch (e) { /* ignore */ }
+function boot() {
   document.getElementById('chap').textContent = PACK.chapter;
   document.getElementById('ptitle').textContent = PACK.title;
   document.getElementById('pseries').textContent = 'Topografie ' + PACK.series;
   svg.setAttribute('aria-label', 'Topografiekaart ' + PACK.title);
   refreshDone();
   fitAll(false);
-  const restored = !!(data && data.mode);
   // Already practised on this map: start at Voortgang, so you see where you are; new maps start with Bekijken
-  const started = Object.values(prog.items).some(it => it && it.seen > 0);
-  const mode = restored && ['verkennen', 'wat', 'waar', 'toets', 'voortgang'].includes(data.mode) ? data.mode : (started ? 'voortgang' : 'verkennen');
-  setMode(mode, !restored);
+  setMode(isStarted(prog.items) ? 'voortgang' : 'verkennen', true);
 }
-boot(restore || {});
+boot();
 window.__topo = { hitsAt, state, BY, M, view, upp };
-return { snapshot: () => ({ mode: state.mode, rounds: state.rounds, sel: state.sel }) };
 }

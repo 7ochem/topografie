@@ -3,10 +3,9 @@
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const appEl = $('#app'), chooserEl = $('#chooser'), helpEl = $('#help');
 const APP_HTML = appEl.innerHTML;
-let current = null; // { id, ctrl, api }
+let current = null; // { id, ctrl }
 const mapCache = {};    // url -> Promise of the map data
 let opening = 0;        // the latest open request; an older one that finishes later is ignored
 const loadMap = url => mapCache[url] || (mapCache[url] = fetch(url).then(r => {
@@ -21,7 +20,7 @@ function starsOf(pack) {
     const v = JSON.parse(localStorage.getItem(storeKey(pack.id)) || 'null');
     if (v && v.items) {
       n = pack.items.filter(i => v.items[i.id] && v.items[i.id].streak >= 3).length;
-      started = Object.values(v.items).some(it => it && it.seen > 0);
+      started = isStarted(v.items);
     }
   } catch (e) { /* storage blocked */ }
   return { n, started };
@@ -32,7 +31,7 @@ function stop() {
   current = null;
   helpEl.hidden = true;
 }
-async function openPack(id, restore) {
+async function openPack(id) {
   const entry = PACKS.find(p => p.pack.id === id);
   if (!entry) { showChooser(); return; }
   const req = ++opening;
@@ -54,8 +53,8 @@ async function openPack(id, restore) {
   appEl.hidden = false;
   const ctrl = new AbortController();
   $('#backbtn').addEventListener('click', showChooser, { signal: ctrl.signal });
-  const api = runGame(entry.pack, map, ctrl.signal, restore);
-  current = { id, ctrl, api };
+  runGame(entry.pack, map, ctrl.signal);
+  current = { id, ctrl };
 }
 function showChooser() {
   opening++;
